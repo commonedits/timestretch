@@ -1,0 +1,110 @@
+<html>
+<head>
+<script src="crowdremix.js"></script>
+<script src="composer.js"></script>
+<script src="decoder_timing_correction.js"></script>
+<script src="draw.js"></script>
+<script src="hits-patterns.js"></script>
+<script src="loading.js"></script>
+<script src="offline-render.js"></script>
+<script src="pattern-templates.js"></script>
+<script src="playback.js"></script>
+<script src="sound-engine.js"></script>
+<script src="tests.js"></script>
+<script>
+// Song data from the API 
+let songs = {
+    "song": {
+        "artist_name": "cherryone",
+        "user_id": "415",
+        "analysis_id": "8376",
+        "analysis_json_url": "https://4.cdn.crowdremix.io/analysis/0d27619ac8662dcbded6d4a1f276c895_analysis.json",
+        "lores_spectrogram_url": "https://9.cdn.crowdremix.io/timbre/7ba04473fd1ac791be558497ef2604a6_timbre_lores.jpg",
+        "hires_spectrogram_urls": [
+            "https://0.cdn.crowdremix.io/timbre/a1772e2ffb5d9c5b3c53c21884dcff14_timbre_hires0.jpg"
+        ],
+        "song_id": "8079",
+        "title": "Banjo",
+        "streams_nonunique": "12",
+        "streams": "4",
+        "cached_pie": null,
+        "likes": "0",
+        "score": "4",
+        "bpm": "120",
+        "duration": "64.00109",
+        "song_url": "https://1.cdn.crowdremix.io/aac32k/3ca1704a6409c593d8aca60953c11d62_song.32k.m4a",
+        "mp3v6": "https://0.cdn.crowdremix.io/mp3v6/9f437036d66463ea8741868183e4cb68_song.v6.mp3",
+        "aac32k": "https://1.cdn.crowdremix.io/aac32k/3ca1704a6409c593d8aca60953c11d62_song.32k.m4a",
+        "aac8k": "https://1.cdn.crowdremix.io/aac8k/6d446dcfca8508e89f27f8a7e5d65b0a_song.8k.m4a",
+        "user_pic": "https://2.cdn.crowdremix.io/user_pic/6aa0c6ef09f9c633568100a70ddfa7bc-user_pic.jpg",
+        "song_pic": "",
+        "reason_for_existence": "crowdremix",
+        "published_from_cr_session_id": "1438",
+        "still_processing_submission": false,
+        "analyzer_error": null,
+        "liked": false
+    }
+}
+
+// Hacky way to run test when audio has finished loading
+let progress_audio = function(id, percent){ 
+	console.log(id, percent);
+	if(percent==1){
+		setTimeout(function(){
+			start_test()
+		}, 1000)
+
+		setInterval(function(){
+			cr.Sound.segmentScheduler()
+		},10)
+	}
+}
+
+// Stop all the sounds
+function stop(){
+	cr.Sound.stopAll()
+}
+
+
+// Run the test
+function start_test(){
+	console.log("start");
+	// The full analysis of the song
+	console.log(cr.analysis);
+	// Change this for tempo shifting
+	let speed = 2;
+	// Web audio's internal clock time 
+	let now = cr.Sound.context.currentTime;
+	// "when" tells web audio when to play the segment (in relation to its internal clock)
+	let when = now;
+	// Loop through the first 100 segments and play them
+	for(let i=0; i<100; i++){
+		// The analysis of the ith segment
+		let seg = cr.analysis["8079"].segments[i];
+		console.log("Seg", seg);
+		// this is the object that the SoundEngine reads in for playing one segment
+		let playseg = {
+			"when": when,
+			"duration": seg.duration,
+			"start": seg.start,
+			"song_id": 8079,
+			"gain": 1,
+			"speed": speed, // this is the new parameter for Time Stretch
+			"layer": 1 // free hits on layer 0, everything else layer 1
+		};
+		cr.Sound.queueSegment(playseg);
+		when += seg.duration * speed;
+	}
+}
+
+
+
+// Load and initialize
+let cr = new CrowdRemixEngine();
+cr.set_songs(songs);
+cr.load(progress_audio);
+
+
+</script>
+</head>
+</html>
