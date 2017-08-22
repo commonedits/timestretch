@@ -322,6 +322,7 @@ function SimpleFilter(sourceSound, pipe) {
     this.sourceSound = sourceSound;
     this.historyBufferSize = 22050;
     this._sourcePosition = 0;
+    this._sourceEnd = 0;
     this.outputBufferPosition = 0;
     this._position = 0;
 }
@@ -349,6 +350,14 @@ SimpleFilter.prototype = {
     set sourcePosition(sourcePosition) {
         this.clear();
         this._sourcePosition = sourcePosition;
+    },  
+    // Set an end point for the timestretched segment, instead of running to the end of the song
+    get sourceEnd() {
+        return this._sourceEnd;
+    },
+    set sourceEnd(sourceEnd) {
+        this.clear();
+        this._sourceEnd = sourceEnd;
     },
     get inputBuffer() {
         return this._pipe.inputBuffer;
@@ -380,6 +389,10 @@ SimpleFilter.prototype = {
         this.fillOutputBuffer(this.outputBufferPosition + numFrames);
 
         var numFramesExtracted = Math.min(numFrames, this.outputBuffer.frameCount - this.outputBufferPosition);
+        // _sourceEnd contains the ending sample for this segment
+        // Cut the buffer short if we've reached the end of the segment
+        console.log("extract", numFramesExtracted, this._sourceEnd, this.outputBufferPosition, this._sourceEnd-this.outputBufferPosition, this.outputBuffer.frameCount-this.outputBufferPosition)
+        numFramesExtracted = Math.min(numFramesExtracted, this._sourceEnd - this.outputBufferPosition)
         this.outputBuffer.extract(target, this.outputBufferPosition, numFramesExtracted);
 
         var currentFrames = this.outputBufferPosition + numFramesExtracted;
@@ -915,6 +928,54 @@ function getWebAudioNode(context, filter) {
     };
     return node;
 }
+
+/*** 
+
+function getWebAudioNode(context, filter, when, duration) {
+    var BUFFER_SIZE = 4096;
+    console.log(context);
+    var node = context.createScriptProcessor(BUFFER_SIZE, 2, 2);
+    var new_samples = new Float32Array(BUFFER_SIZE * 2);
+    var old_samples = new Float32Array(BUFFER_SIZE * 2);
+
+    node.onaudioprocess = function(e) {
+
+       
+        let process_time = e.playbackTime;
+
+        console.log("audioprocess",e);
+        var l = e.outputBuffer.getChannelData(0),
+            r = e.outputBuffer.getChannelData(1);
+        var framesExtracted = filter.extract(new_samples, BUFFER_SIZE);
+        
+        old_samples = new_samples.copy()
+
+
+        if(process_time < when){ 
+            // ignore
+            return;
+        }
+
+        if (process_time > when + duration) {
+            node.disconnect(); // done
+        }
+
+        cutpoint = (processtime - when) * samplerate; 
+
+        for (var i = 0; i < cutpoint; i++) {
+            l[i] = old_samples[i * 2];
+            r[i] = old_samples[i * 2 + 1];
+        }
+
+        for (var i = cutpoint; i < framesExtracted; i++) {
+            l[i] = new_samples[i * 2];
+            r[i] = new_samples[i * 2 + 1];
+        }
+    };
+    return node;
+} **/
+
+
 
 window.soundtouch = {
     'RateTransposer': RateTransposer,

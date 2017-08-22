@@ -32,7 +32,7 @@ function SuperSoundEngine(){
 	this.timerWorker = null
 
 	this.interval = 1000 // call the segmentScheduler every ___ ms
-	this.windowLength = 1.200 // How far ahead to schedule audio (sec)
+	this.windowLength = 1.2 // How far ahead to schedule audio (sec)
 	this.rampAttack = .002 // 2 millisecond ramp at beginning of segment
 	this.rampRelease = .0010 // 10 millisecond ramp at the end of segment
 	this.rampEpsilon = 0.001 // start and end at some low gain, 0 doesn't work
@@ -187,7 +187,9 @@ function SuperSoundEngine(){
 		}
 	}
 
-	this.play = function(seg){
+	this.play = function(seg){		
+		let self = this;   // Unambiguous reference to the SoundEngine object
+
 		//console.log("play", seg);
 		// { id, when, start, duration, callback_onended, gain, layer }
 
@@ -239,48 +241,6 @@ function SuperSoundEngine(){
 			duration = seg.duration;
 		}
 
-		//SoundTouch
-		//seg_source.playbackRate.value = 1/seg.speed
-		let sample_rate = seg_source.buffer.sampleRate;
-		let frequency_factor = Math.pow(2, (seg.semitones / 12));
-		
-		seg.st.tempo = 1/seg.speed;
-		seg.st.pitch = frequency_factor;
-		let buffer_source = new soundtouch.WebAudioBufferSource(song_source.buffer)
-		let st_filter = new soundtouch.SimpleFilter(buffer_source, seg.st);
-		st_filter.sourcePosition = Math.ceil(seg_start*sample_rate);
-		console.warn(st_filter.sourcePosition)
-		st_node = soundtouch.getWebAudioNode(this.context, st_filter);
-		function disconnect_st(){
-			seg.st.clear()
-		}
-		console.log(st_filter.sourcePosition)
-		setTimeout(disconnect_st, seg.when - this.context.currentTime + seg.duration)
-		
-
-		// Gain
-		let gain = 1.0 // overall gain of segment, default 1.0
-		if(seg["gain"]) gain = seg["gain"];
-		let gainNode = this.context.createGain();
-
-		gainNode.gain.value = gain;  // default: steady gain, gives you clicks
-
-		// Amplitude Envelope
-		// We fade in/out to avoid clicks
-		// start silent
-		gainNode.gain.setValueAtTime(this.rampEpsilon, when_start);
-		// ramp up to gain value
-		gainNode.gain.exponentialRampToValueAtTime(gain, when_start + this.rampAttack);
-		// hold until end
-		gainNode.gain.setValueAtTime(gain, when_end - this.rampRelease);
-		// ramp down
-    	gainNode.gain.exponentialRampToValueAtTime(this.rampEpsilon, when_end);
-
-    	// connect the source, through the gain node, to the destination
-		st_node.connect(gainNode);
-		gainNode.connect(this.context.destination);
-		seg_source.gainNode = gainNode; 
-
 		// Adjust any timing corrections due to browser decoding errors
 		// (If the timing correction has been calculated in decoder_timing_correction.js)
 		// The "encoding" parameter is set during load() and is hackily based on the url extension
@@ -298,14 +258,61 @@ function SuperSoundEngine(){
 		// but we can't have a negative start time, so force it to be zero
 		if(seg_start<0) seg_start = 0;
 
+
+		//SoundTouch
+		//seg_source.playbackRate.value = 1/seg.speed
+		let sample_rate = seg_source.buffer.sampleRate;
+
+		let st = new soundtouch.SoundTouch(sample_rate); //creates RateTransposer, Stretch, and FIFOSampleBuffers
+		seg.st = st;
+
+		//console.log(sample_rate)
+		let frequency_factor = Math.pow(2, (seg.semitones / 12));
+		
+		seg.st.tempo = 1/seg.speed;
+		seg.st.pitch = frequency_factor;
+		//duration += 0.1
+		let buffer_source = new soundtouch.WebAudioBufferSource(song_source.buffer)
+		let st_filter = new soundtouch.SimpleFilter(buffer_source, seg.st);
+		st_filter.sourcePosition = Math.ceil(seg_start*sample_rate);
+		st_filter.sourceEnd = Math.ceil((duration)*sample_rate);
+		console.warn(st_filter.sourcePosition)
+		let st_node = soundtouch.getWebAudioNode(this.context, st_filter);
+		
+
+		// Gain
+		let gain = 1.0 // overall gain of segment, default 1.0
+		if(seg["gain"]) gain = seg["gain"];
+		let gainNode = this.context.createGain();
+
+		gainNode.gain.value = gain;  // default: steady gain, gives you clicks
+
+		/*// Amplitude Envelope
+		// We fade in/out to avoid clicks
+		// start silent
+		gainNode.gain.setValueAtTime(this.rampEpsilon, when_start);
+		// ramp up to gain value
+		gainNode.gain.exponentialRampToValueAtTime(gain, when_start + this.rampAttack);
+		// hold until end
+		gainNode.gain.setValueAtTime(gain, when_end - this.rampRelease);
+		// ramp down
+    	gainNode.gain.exponentialRampToValueAtTime(this.rampEpsilon, when_end);*/
+
+    	// connect the source, through the gain node, to the destination
+		setTimeout(function(){
+			st_node.connect(gainNode)
+		}, (when_start-this.context.currentTime)*1000.0);
+			//st_node.connect(gainNode)		
+		gainNode.connect(self.context.destination);
+		seg_source.gainNode = gainNode; 
+
     	// Play it!
     	// console.log("PlaySeg", when_start, seg_start, duration);
     	//seg_source.start(when_start, seg_start, duration);
     	seg_source.when = when_start; 
     	seg_source.duration = duration;
     	// Keep track of it in the buffer queue (so we can stop it later)
-		this.bufferQueue.push(seg_source);
-
+		self.bufferQueue.push(seg_source);
 		//seg_source.onended = callback_onended;
 		/*if(seg.callback_onended != null){
 			seg_source.onended = function(){
