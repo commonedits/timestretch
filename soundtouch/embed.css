@@ -1,0 +1,28 @@
+body {
+	font-family: Arial;
+}
+#main_wrapper {
+	height: 50px;
+	width: 900px;
+}
+.gylphicon{
+	font-size: 1em;
+}
+.pointer{
+	cursor: pointer;
+}
+#pause_button{
+	display: none;
+	width: 100%;
+	height: 100%;
+}
+#play_button{
+	display: none;
+	width: 100%;
+	height: 100%;
+}
+#stop_button{
+	display: none;
+	width: 100%;
+	height: 100%;
+}
