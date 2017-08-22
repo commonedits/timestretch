@@ -212,6 +212,7 @@ function SuperSoundEngine(){
 		// Timing
 		let when_start, when_end, duration, seg_start;
 		if(seg.when < this.context.currentTime){
+			console.warn('late!!!')
 			// We're late!
 			// this segment was scheduled to play in the past
 			// scootch start time up + duration accordingly
@@ -239,23 +240,23 @@ function SuperSoundEngine(){
 		}
 
 		//SoundTouch
-		let sample_rate = 44100;
+		//seg_source.playbackRate.value = 1/seg.speed
+		let sample_rate = seg_source.buffer.sampleRate;
 		let frequency_factor = Math.pow(2, (seg.semitones / 12));
-		let st = new soundtouch.SoundTouch(sample_rate); //creates RateTransposer, Stretch, and FIFOSampleBuffers
-		st.tempo = 1/seg.speed;
-		st.pitch = frequency_factor;
+		
+		seg.st.tempo = 1/seg.speed;
+		seg.st.pitch = frequency_factor;
 		let buffer_source = new soundtouch.WebAudioBufferSource(song_source.buffer)
-		let st_filter = new soundtouch.SimpleFilter(buffer_source, st);
-		console.log(seg_start)
+		let st_filter = new soundtouch.SimpleFilter(buffer_source, seg.st);
 		st_filter.sourcePosition = Math.ceil(seg_start*sample_rate);
-		console.log(st_filter.sourcePosition)
+		console.warn(st_filter.sourcePosition)
 		st_node = soundtouch.getWebAudioNode(this.context, st_filter);
 		function disconnect_st(){
-			st_node.disconnect()
+			seg.st.clear()
 		}
 		console.log(st_filter.sourcePosition)
-		//setTimeout(disconnect_st, seg.when - this.context.currentTime + seg.duration)
-		seg_source.playbackRate.value = 1/seg.speed
+		setTimeout(disconnect_st, seg.when - this.context.currentTime + seg.duration)
+		
 
 		// Gain
 		let gain = 1.0 // overall gain of segment, default 1.0
