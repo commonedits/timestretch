@@ -1,5 +1,6 @@
 <html>
 <head>
+<script src="soundtouch/scripts/soundtouch.js"></script>
 <script src="crowdremix.js"></script>
 <script src="composer.js"></script>
 <script src="decoder_timing_correction.js"></script>
@@ -72,23 +73,24 @@ function start_test(){
 	// The full analysis of the song
 	console.log(cr.analysis);
 	// Change this for tempo shifting
-	let speed = 2;
+	let speed = 1.5;	
 	// Web audio's internal clock time 
 	let now = cr.Sound.context.currentTime;
 	// "when" tells web audio when to play the segment (in relation to its internal clock)
 	let when = now;
 	// Loop through the first 100 segments and play them
-	for(let i=0; i<100; i++){
+	for(let i=0; i<1; i++){
 		// The analysis of the ith segment
 		let seg = cr.analysis["8079"].segments[i];
 		console.log("Seg", seg);
 		// this is the object that the SoundEngine reads in for playing one segment
 		let playseg = {
 			"when": when,
-			"duration": seg.duration,
+			"duration": 60*speed,
 			"start": seg.start,
 			"song_id": 8079,
 			"gain": 1,
+			"semitones": 0,
 			"speed": speed, // this is the new parameter for Time Stretch
 			"layer": 1 // free hits on layer 0, everything else layer 1
 		};
