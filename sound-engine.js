@@ -238,6 +238,25 @@ function SuperSoundEngine(){
 			duration = seg.duration;
 		}
 
+		//SoundTouch
+		let sample_rate = 44100;
+		let frequency_factor = Math.pow(2, (seg.semitones / 12));
+		let st = new soundtouch.SoundTouch(sample_rate); //creates RateTransposer, Stretch, and FIFOSampleBuffers
+		st.tempo = 1/seg.speed;
+		st.pitch = frequency_factor;
+		let buffer_source = new soundtouch.WebAudioBufferSource(song_source.buffer)
+		let st_filter = new soundtouch.SimpleFilter(buffer_source, st);
+		console.log(seg_start)
+		st_filter.sourcePosition = Math.ceil(seg_start*sample_rate);
+		console.log(st_filter.sourcePosition)
+		st_node = soundtouch.getWebAudioNode(this.context, st_filter);
+		function disconnect_st(){
+			st_node.disconnect()
+		}
+		console.log(st_filter.sourcePosition)
+		//setTimeout(disconnect_st, seg.when - this.context.currentTime + seg.duration)
+		seg_source.playbackRate.value = 1/seg.speed
+
 		// Gain
 		let gain = 1.0 // overall gain of segment, default 1.0
 		if(seg["gain"]) gain = seg["gain"];
@@ -257,7 +276,7 @@ function SuperSoundEngine(){
     	gainNode.gain.exponentialRampToValueAtTime(this.rampEpsilon, when_end);
 
     	// connect the source, through the gain node, to the destination
-		seg_source.connect(gainNode);
+		st_node.connect(gainNode);
 		gainNode.connect(this.context.destination);
 		seg_source.gainNode = gainNode; 
 
@@ -280,7 +299,7 @@ function SuperSoundEngine(){
 
     	// Play it!
     	// console.log("PlaySeg", when_start, seg_start, duration);
-    	seg_source.start(when_start, seg_start, duration);
+    	//seg_source.start(when_start, seg_start, duration);
     	seg_source.when = when_start; 
     	seg_source.duration = duration;
     	// Keep track of it in the buffer queue (so we can stop it later)
@@ -398,7 +417,7 @@ function SuperSoundEngine(){
 
 	this.initMetronome = function(){
 		//console.log("metronome init")
-		this.timerWorker = new Worker("/metronome-worker.js");
+		this.timerWorker = new Worker("metronome-worker.js");
 		var self = this;
 		this.timerWorker.onmessage = function(e) {
 	        if (e.data === "tick") {
