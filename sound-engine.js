@@ -277,7 +277,7 @@ function SuperSoundEngine(){
 		st_filter.sourcePosition = Math.ceil(seg_start*sample_rate);
 		st_filter.sourceEnd = Math.ceil((duration)*sample_rate);
 		console.warn(st_filter.sourcePosition)
-		let st_node = soundtouch.getWebAudioNode(this.context, st_filter);
+		let st_node = soundtouch.getTimedWebAudioNode(this.context, st_filter, when_start, duration);
 		
 
 		// Gain
@@ -299,10 +299,13 @@ function SuperSoundEngine(){
     	gainNode.gain.exponentialRampToValueAtTime(this.rampEpsilon, when_end);*/
 
     	// connect the source, through the gain node, to the destination
+    	st_node.connect(gainNode)
+		/*
 		setTimeout(function(){
 			st_node.connect(gainNode)
 		}, (when_start-this.context.currentTime)*1000.0);
 			//st_node.connect(gainNode)		
+		*/
 		gainNode.connect(self.context.destination);
 		seg_source.gainNode = gainNode; 
 

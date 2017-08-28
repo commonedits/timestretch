@@ -910,18 +910,17 @@ WebAudioBufferSource.prototype = {
 };
 
 function getWebAudioNode(context, filter) {
-    var BUFFER_SIZE = 4096;
-    console.log(context);
-    var node = context.createScriptProcessor(BUFFER_SIZE, 2, 2),
+    let BUFFER_SIZE = 4096,
+        node = context.createScriptProcessor(BUFFER_SIZE, 2, 2),
         samples = new Float32Array(BUFFER_SIZE * 2);
     node.onaudioprocess = function(e) {
-        var l = e.outputBuffer.getChannelData(0),
+        let l = e.outputBuffer.getChannelData(0),
             r = e.outputBuffer.getChannelData(1);
-        var framesExtracted = filter.extract(samples, BUFFER_SIZE);
+        let framesExtracted = filter.extract(samples, BUFFER_SIZE);
         if (framesExtracted === 0) {
             node.disconnect(); // Pause.
         }
-        for (var i = 0; i < framesExtracted; i++) {
+        for (let i = 0; i < framesExtracted; i++) {
             l[i] = samples[i * 2];
             r[i] = samples[i * 2 + 1];
         }
@@ -929,26 +928,35 @@ function getWebAudioNode(context, filter) {
     return node;
 }
 
-/*** 
+/***
+//Firefox fix
+if (!ArrayBuffer.prototype.slice)
+    ArrayBuffer.prototype.slice = function (start, end) {
+        var that = new Uint8Array(this);
+        if (end == undefined) end = that.length;
+        var result = new ArrayBuffer(end - start);
+        var resultArray = new Uint8Array(result);
+        for (var i = 0; i < resultArray.length; i++)
+           resultArray[i] = that[i + start];
+        return result;
+    }
+***/
 
-function getWebAudioNode(context, filter, when, duration) {
-    var BUFFER_SIZE = 4096;
-    console.log(context);
-    var node = context.createScriptProcessor(BUFFER_SIZE, 2, 2);
-    var new_samples = new Float32Array(BUFFER_SIZE * 2);
-    var old_samples = new Float32Array(BUFFER_SIZE * 2);
+function getTimedWebAudioNode(context, filter, when, duration) {
+    let BUFFER_SIZE = 4096,
+        node = context.createScriptProcessor(BUFFER_SIZE, 2, 2),
+        new_samples = new Float32Array(BUFFER_SIZE * 2),
+        old_samples = new Float32Array(BUFFER_SIZE * 2);
 
     node.onaudioprocess = function(e) {
 
        
-        let process_time = e.playbackTime;
-
-        console.log("audioprocess",e);
-        var l = e.outputBuffer.getChannelData(0),
-            r = e.outputBuffer.getChannelData(1);
-        var framesExtracted = filter.extract(new_samples, BUFFER_SIZE);
+        let process_time = e.playbackTime,
+            l = e.outputBuffer.getChannelData(0),
+            r = e.outputBuffer.getChannelData(1),
+            framesExtracted = filter.extract(new_samples, BUFFER_SIZE);
         
-        old_samples = new_samples.copy()
+        old_samples = new_samples.slice(0)
 
 
         if(process_time < when){ 
@@ -960,7 +968,7 @@ function getWebAudioNode(context, filter, when, duration) {
             node.disconnect(); // done
         }
 
-        cutpoint = (processtime - when) * samplerate; 
+        cutpoint = (process_time - when) * context.samplerRate; 
 
         for (var i = 0; i < cutpoint; i++) {
             l[i] = old_samples[i * 2];
@@ -973,7 +981,7 @@ function getWebAudioNode(context, filter, when, duration) {
         }
     };
     return node;
-} **/
+}
 
 
 
@@ -983,7 +991,8 @@ window.soundtouch = {
     'SimpleFilter': SimpleFilter,
     'SoundTouch': SoundTouch,
     'WebAudioBufferSource': WebAudioBufferSource,
-    'getWebAudioNode': getWebAudioNode
+    'getWebAudioNode': getWebAudioNode,
+    'getTimedWebAudioNode': getTimedWebAudioNode
 };
 
 })(this);
