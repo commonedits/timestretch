@@ -391,7 +391,7 @@ SimpleFilter.prototype = {
         var numFramesExtracted = Math.min(numFrames, this.outputBuffer.frameCount - this.outputBufferPosition);
         // _sourceEnd contains the ending sample for this segment
         // Cut the buffer short if we've reached the end of the segment
-        console.log("extract", numFramesExtracted, this._sourceEnd, this.outputBufferPosition, this._sourceEnd-this.outputBufferPosition, this.outputBuffer.frameCount-this.outputBufferPosition)
+        console.log("nframes_extracted", numFramesExtracted, 'sourceend', this._sourceEnd, 'outputbufferPosition', this.outputBufferPosition, 'end-position', this._sourceEnd-this.outputBufferPosition, 'framecount - position', this.outputBuffer.frameCount-this.outputBufferPosition)
         numFramesExtracted = Math.min(numFramesExtracted, this._sourceEnd - this.outputBufferPosition)
         this.outputBuffer.extract(target, this.outputBufferPosition, numFramesExtracted);
 
@@ -943,14 +943,11 @@ if (!ArrayBuffer.prototype.slice)
 ***/
 
 function getTimedWebAudioNode(context, filter, when, duration) {
-    let BUFFER_SIZE = 4096,
+    let BUFFER_SIZE = 8192,
         node = context.createScriptProcessor(BUFFER_SIZE, 2, 2),
         new_samples = new Float32Array(BUFFER_SIZE * 2),
         old_samples = new Float32Array(BUFFER_SIZE * 2);
-
     node.onaudioprocess = function(e) {
-
-       
         let process_time = e.playbackTime,
             l = e.outputBuffer.getChannelData(0),
             r = e.outputBuffer.getChannelData(1),
@@ -958,23 +955,24 @@ function getTimedWebAudioNode(context, filter, when, duration) {
         
         old_samples = new_samples.slice(0)
 
-
+        // we processed this in time to start CONTINUE
         if(process_time < when){ 
             // ignore
             return;
         }
-
-        if (process_time > when + duration) {
+        // we missed this END
+        if (process_time > when + duration || framesExtracted === 0) {
             node.disconnect(); // done
+            return;
         }
-
-        cutpoint = (process_time - when) * context.samplerRate; 
-
+        // how early were we
+        cutpoint = (process_time - when) * context.sampleRate; 
+        // every sample before the cutpoin
         for (var i = 0; i < cutpoint; i++) {
             l[i] = old_samples[i * 2];
             r[i] = old_samples[i * 2 + 1];
         }
-
+        // every sample after the cutpoint
         for (var i = cutpoint; i < framesExtracted; i++) {
             l[i] = new_samples[i * 2];
             r[i] = new_samples[i * 2 + 1];

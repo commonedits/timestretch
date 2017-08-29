@@ -27,7 +27,7 @@ function SuperSoundEngine(){
 
 	this.sources = {};		// holds buffer sources for the full songs, keys are analysis ids
 	this.bufferQueue = [] // only necessary to keep track of what to stop
-
+	this.st = new soundtouch.SoundTouch(this.context.sampleRate); //creates RateTransposer, Stretch, and FIFOSampleBuffers
 
 	this.timerWorker = null
 
@@ -205,7 +205,9 @@ function SuperSoundEngine(){
 		let seg_source = this.context.createBufferSource();
 		// Point to the buffered data from the song's source buffer
 		seg_source.buffer = song_source.buffer;
-
+		//SoundTouch
+		//seg_source.playbackRate.value = 1/seg.speed
+		let sample_rate = seg_source.buffer.sampleRate;
 
 		// Layer
 		if(!seg.layer) seg.layer = 0; // set to layer 0 by default
@@ -257,16 +259,7 @@ function SuperSoundEngine(){
 		// and the browser cuts off the beginning of the file
 		// but we can't have a negative start time, so force it to be zero
 		if(seg_start<0) seg_start = 0;
-
-
-		//SoundTouch
-		//seg_source.playbackRate.value = 1/seg.speed
-		let sample_rate = seg_source.buffer.sampleRate;
-
-		let st = new soundtouch.SoundTouch(sample_rate); //creates RateTransposer, Stretch, and FIFOSampleBuffers
-		seg.st = st;
-
-		//console.log(sample_rate)
+		seg.st = this.st;
 		let frequency_factor = Math.pow(2, (seg.semitones / 12));
 		
 		seg.st.tempo = 1/seg.speed;
@@ -276,15 +269,15 @@ function SuperSoundEngine(){
 		let st_filter = new soundtouch.SimpleFilter(buffer_source, seg.st);
 		st_filter.sourcePosition = Math.ceil(seg_start*sample_rate);
 		st_filter.sourceEnd = Math.ceil((duration)*sample_rate);
-		console.warn(st_filter.sourcePosition)
-		let st_node = soundtouch.getTimedWebAudioNode(this.context, st_filter, when_start, duration);
+		let st_node = soundtouch.getTimedWebAudioNode(this.context, st_filter, when_start, duration, this.context.currentTime);
 		
 
 		// Gain
 		let gain = 1.0 // overall gain of segment, default 1.0
 		if(seg["gain"]) gain = seg["gain"];
 		let gainNode = this.context.createGain();
-
+		// connect the source, through the gain node, to the destination
+    	st_node.connect(gainNode)
 		gainNode.gain.value = gain;  // default: steady gain, gives you clicks
 
 		/*// Amplitude Envelope
@@ -297,9 +290,6 @@ function SuperSoundEngine(){
 		gainNode.gain.setValueAtTime(gain, when_end - this.rampRelease);
 		// ramp down
     	gainNode.gain.exponentialRampToValueAtTime(this.rampEpsilon, when_end);*/
-
-    	// connect the source, through the gain node, to the destination
-    	st_node.connect(gainNode)
 		/*
 		setTimeout(function(){
 			st_node.connect(gainNode)
