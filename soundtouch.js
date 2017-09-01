@@ -943,7 +943,7 @@ if (!ArrayBuffer.prototype.slice)
 ***/
 
 function getTimedWebAudioNode(context, filter, when, duration) {
-    let BUFFER_SIZE = 8192,
+    let BUFFER_SIZE = 4096,
         node = context.createScriptProcessor(BUFFER_SIZE, 2, 2),
         new_samples = new Float32Array(BUFFER_SIZE * 2),
         old_samples = new Float32Array(BUFFER_SIZE * 2);
@@ -954,7 +954,7 @@ function getTimedWebAudioNode(context, filter, when, duration) {
             framesExtracted = filter.extract(new_samples, BUFFER_SIZE);
         
         old_samples = new_samples.slice(0)
-
+        
         // we processed this in time to start CONTINUE
         if(process_time < when){ 
             // ignore
@@ -962,12 +962,13 @@ function getTimedWebAudioNode(context, filter, when, duration) {
         }
         // we missed this END
         if (process_time > when + duration || framesExtracted === 0) {
-            node.disconnect(); // done
+            node.disconnect(); // done]
+            console.log('DISCONNECTED')
             return;
         }
         // how early were we
         cutpoint = (process_time - when) * context.sampleRate; 
-        // every sample before the cutpoin
+        // every sample before the cutpoint
         for (var i = 0; i < cutpoint; i++) {
             l[i] = old_samples[i * 2];
             r[i] = old_samples[i * 2 + 1];
