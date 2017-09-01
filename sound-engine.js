@@ -27,7 +27,7 @@ function SuperSoundEngine(){
 
 	this.sources = {};		// holds buffer sources for the full songs, keys are analysis ids
 	this.bufferQueue = [] // only necessary to keep track of what to stop
-	this.st = new soundtouch.SoundTouch(this.context.sampleRate); //creates RateTransposer, Stretch, and FIFOSampleBuffers
+
 
 	this.timerWorker = null
 
@@ -60,7 +60,70 @@ function SuperSoundEngine(){
 		}
 		// hopefully this will garbage collect all the buffer data
 	}
-
+	let bufferSize = 4096;
+    let node = this.context.createScriptProcessor(bufferSize, 1, 1);
+    node.bits = 8; // between 1 and 16
+    node.normfreq = 0.1275; // between 0.0 and 1.0
+    let step = Math.pow(1/2, node.bits);
+    let phaser = 0;
+    let last = 0;
+    node.onaudioprocess = function(e) {
+        let input = e.inputBuffer.getChannelData(0);
+        let output = e.outputBuffer.getChannelData(0);
+        for (var i = 0; i < bufferSize; i++) {
+            phaser += node.normfreq;
+            if (phaser >= 1.0) {
+                phaser -= 1.0;
+                last = step * Math.floor(input[i] / step + 0.5);
+            }
+            output[i] = last;
+        }
+    };
+    this.bitNode = node;
+    let b0, b1, b2, b3, b4, b5, b6;
+    b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
+    let convolver = this.context.createConvolver(),
+        noiseBuffer = this.context.createBuffer(2, 0.5 * this.context.sampleRate, this.context.sampleRate),
+        left = noiseBuffer.getChannelData(0),
+        right = noiseBuffer.getChannelData(1);
+    for (let i = 0; i < noiseBuffer.length; i++) {
+    	let whitel = Math.random() * 2 - 1;
+    	let whiter = Math.random() * 2 - 1;
+    	b0 = 0.99886 * b0 + whitel * 0.0555179;
+        b1 = 0.99332 * b1 + whitel * 0.0750759;
+        b2 = 0.96900 * b2 + whitel * 0.1538520;
+        b3 = 0.86650 * b3 + whitel * 0.3104856;
+        b4 = 0.55000 * b4 + whitel * 0.5329522;
+        b5 = -0.7616 * b5 - whitel * 0.0168980;
+        b0 = 0.99886 * b0 + whiter * 0.0555179;
+        b1 = 0.99332 * b1 + whiter * 0.0750759;
+        b2 = 0.96900 * b2 + whiter * 0.1538520;
+        b3 = 0.86650 * b3 + whiter * 0.3104856;
+        b4 = 0.55000 * b4 + whiter * 0.5329522;
+        b5 = -0.7616 * b5 - whiter * 0.0168980;
+        left[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + whitel * 0.5362;
+        left[i] *= 0.11; // (roughly) compensate for gain
+        right[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + whiter * 0.5362;
+        right[i] *= 0.11; // (roughly) compensate for gain
+    }
+    convolver.buffer = noiseBuffer;
+    this.convolveNode = convolver;
+    let delay = this.context.createDelay(5.0);
+   	this.delayNode = delay
+   	let biquadFilter = this.context.createBiquadFilter();
+	biquadFilter.type = "bandpass";
+	biquadFilter.frequency.value = 9500;
+	biquadFilter.gain.value = -12;
+	biquadFilter.Q.value = 5;
+	this.biquadFilterNode = biquadFilter;
+	// Create a compressor node
+	let compressor = this.context.createDynamicsCompressor();
+	compressor.threshold.value = -6;
+	compressor.knee.value = 12;
+	compressor.ratio.value = 7;
+	compressor.attack.value = 0.03;
+	compressor.release.value = 0.35;
+	this.compressorNode = compressor
 	// Terminate everything about this sound engine
 	this.terminate = function(){
 		this.stopAll();
@@ -205,8 +268,6 @@ function SuperSoundEngine(){
 		let seg_source = this.context.createBufferSource();
 		// Point to the buffered data from the song's source buffer
 		seg_source.buffer = song_source.buffer;
-		//SoundTouch
-		//seg_source.playbackRate.value = 1/seg.speed
 		let sample_rate = seg_source.buffer.sampleRate;
 
 		// Layer
@@ -259,9 +320,10 @@ function SuperSoundEngine(){
 		// and the browser cuts off the beginning of the file
 		// but we can't have a negative start time, so force it to be zero
 		if(seg_start<0) seg_start = 0;
-		seg.st = this.st;
+		/*
 		let frequency_factor = Math.pow(2, (seg.semitones / 12));
-		
+		//SoundTouch
+		seg.st = new soundtouch.SoundTouch(this.context.sampleRate); //creates RateTransposer, Stretch, and FIFOSampleBuffers
 		seg.st.tempo = 1/seg.speed;
 		seg.st.pitch = frequency_factor;
 		//duration += 0.1
@@ -269,18 +331,18 @@ function SuperSoundEngine(){
 		let st_filter = new soundtouch.SimpleFilter(buffer_source, seg.st);
 		st_filter.sourcePosition = Math.ceil(seg_start*sample_rate);
 		st_filter.sourceEnd = Math.ceil((duration)*sample_rate);
-		let st_node = soundtouch.getTimedWebAudioNode(this.context, st_filter, when_start, duration, this.context.currentTime);
+		let st_node = soundtouch.getWebAudioNode(this.context, st_filter, when_start, duration, this.context.currentTime);
 		
-
-		// Gain
+		*/
+		
+// Gain
 		let gain = 1.0 // overall gain of segment, default 1.0
 		if(seg["gain"]) gain = seg["gain"];
 		let gainNode = this.context.createGain();
-		// connect the source, through the gain node, to the destination
-    	st_node.connect(gainNode)
+
 		gainNode.gain.value = gain;  // default: steady gain, gives you clicks
 
-		/*// Amplitude Envelope
+		// Amplitude Envelope
 		// We fade in/out to avoid clicks
 		// start silent
 		gainNode.gain.setValueAtTime(this.rampEpsilon, when_start);
@@ -289,23 +351,45 @@ function SuperSoundEngine(){
 		// hold until end
 		gainNode.gain.setValueAtTime(gain, when_end - this.rampRelease);
 		// ramp down
-    	gainNode.gain.exponentialRampToValueAtTime(this.rampEpsilon, when_end);*/
-		/*
-		setTimeout(function(){
-			st_node.connect(gainNode)
-		}, (when_start-this.context.currentTime)*1000.0);
-			//st_node.connect(gainNode)		
-		*/
-		gainNode.connect(self.context.destination);
-		seg_source.gainNode = gainNode; 
+    	gainNode.gain.exponentialRampToValueAtTime(this.rampEpsilon, when_end);
+
+    	this.biquadFilterNode.frequency.setValueAtTime(9500, when_start);
+    	this.biquadFilterNode.frequency.exponentialRampToValueAtTime(40, when_end - this.rampRelease)
+    	this.biquadFilterNode.frequency.exponentialRampToValueAtTime(9500, when_end)
+    	// connect the source, through the gain node, to the destination
+		//seg_source.connect(gainNode);
+		seg_source.connect(this.biquadFilterNode);
+		//this.delayNode.connect(this.biquadFilterNode);
+		this.biquadFilterNode.connect(this.compressorNode);
+		this.compressorNode.connect(gainNode);
+		gainNode.connect(this.context.destination);
+		seg_source.gainNode = gainNode;
+
+		// Adjust any timing corrections due to browser decoding errors
+		// (If the timing correction has been calculated in decoder_timing_correction.js)
+		// The "encoding" parameter is set during load() and is hackily based on the url extension
+		if(song_source.encoding == "mp3" && window.mp3_timing_correction){
+			seg_start += window.mp3_timing_correction;
+		}else if(song_source.encoding == "aac_hev2" && window.aac_hev2_timing_correction){
+			seg_start += window.aac_hev2_timing_correction
+		}else{
+			// default behavior, no correction
+			// WAV should work OK
+			// FLAC (if the browser supports it) should work OK
+		}
+		// but sometimes there's a negative timing correction
+		// and the browser cuts off the beginning of the file
+		// but we can't have a negative start time, so force it to be zero
+		if(seg_start<0) seg_start = 0;
 
     	// Play it!
     	// console.log("PlaySeg", when_start, seg_start, duration);
-    	//seg_source.start(when_start, seg_start, duration);
+    	seg_source.start(when_start, seg_start, duration);
     	seg_source.when = when_start; 
     	seg_source.duration = duration;
     	// Keep track of it in the buffer queue (so we can stop it later)
-		self.bufferQueue.push(seg_source);
+		this.bufferQueue.push(seg_source);
+
 		//seg_source.onended = callback_onended;
 		/*if(seg.callback_onended != null){
 			seg_source.onended = function(){
