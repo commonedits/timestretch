@@ -114,7 +114,7 @@ function SuperSoundEngine(){
 	biquadFilter.type = "bandpass";
 	biquadFilter.frequency.value = 9500;
 	biquadFilter.gain.value = -12;
-	biquadFilter.Q.value = 5;
+	biquadFilter.Q.value = 1.5;
 	this.biquadFilterNode = biquadFilter;
 	// Create a compressor node
 	let compressor = this.context.createDynamicsCompressor();
@@ -352,10 +352,14 @@ function SuperSoundEngine(){
 		gainNode.gain.setValueAtTime(gain, when_end - this.rampRelease);
 		// ramp down
     	gainNode.gain.exponentialRampToValueAtTime(this.rampEpsilon, when_end);
-
+    	/*
     	this.biquadFilterNode.frequency.setValueAtTime(9500, when_start);
-    	this.biquadFilterNode.frequency.exponentialRampToValueAtTime(40, when_end - this.rampRelease)
+    	this.biquadFilterNode.frequency.exponentialRampToValueAtTime(300, when_end - this.rampRelease)
     	this.biquadFilterNode.frequency.exponentialRampToValueAtTime(9500, when_end)
+    	*/
+    	this.biquadFilterNode.frequency.setValueAtTime(100, when_start);
+    	this.biquadFilterNode.frequency.exponentialRampToValueAtTime(4000, when_end - this.rampRelease)
+    	this.biquadFilterNode.frequency.exponentialRampToValueAtTime(100, when_end)
     	// connect the source, through the gain node, to the destination
 		//seg_source.connect(gainNode);
 		seg_source.connect(this.biquadFilterNode);
