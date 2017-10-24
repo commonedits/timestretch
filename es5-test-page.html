@@ -73,7 +73,7 @@ function start_test(){
 	// The full analysis of the song
 	console.log(cr.analysis);
 	// Change this for tempo shifting
-	let speed = 1;	
+	let speed = 2;	
 	// Web audio's internal clock time 
 	let now = cr.Sound.context.currentTime;
 	// "when" tells web audio when to play the segment (in relation to its internal clock)
@@ -92,8 +92,8 @@ function start_test(){
 			"gain": 1,
 			"semitones": 0, // this is the new parameter for Pitch Shift
 			"speed": speed, // this is the new parameter for Time Stretch
-			//"st": st,
-			"layer": 1 // free hits on layer 0, everything else layer 1
+			"layer": 1, // free hits on layer 0, everything else layer 1
+			"stretch_type" : 'pingpong'
 		};
 		cr.Sound.queueSegment(playseg);
 		when += seg.duration * speed;

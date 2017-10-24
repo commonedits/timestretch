@@ -82,6 +82,7 @@ function SuperSoundEngine(){
     this.bitNode = node;
     let b0, b1, b2, b3, b4, b5, b6;
     b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
+    //noise convolver fx node
     let convolver = this.context.createConvolver(),
         noiseBuffer = this.context.createBuffer(2, 0.5 * this.context.sampleRate, this.context.sampleRate),
         left = noiseBuffer.getChannelData(0),
@@ -108,15 +109,17 @@ function SuperSoundEngine(){
     }
     convolver.buffer = noiseBuffer;
     this.convolveNode = convolver;
+    //delay fx node
     let delay = this.context.createDelay(5.0);
    	this.delayNode = delay
+   	//filter fx node
    	let biquadFilter = this.context.createBiquadFilter();
 	biquadFilter.type = "bandpass";
 	biquadFilter.frequency.value = 9500;
 	biquadFilter.gain.value = -12;
 	biquadFilter.Q.value = 1.5;
 	this.biquadFilterNode = biquadFilter;
-	// Create a compressor node
+	//dynamic compressor fx node
 	let compressor = this.context.createDynamicsCompressor();
 	compressor.threshold.value = -6;
 	compressor.knee.value = 12;
@@ -334,6 +337,63 @@ function SuperSoundEngine(){
 		let st_node = soundtouch.getWebAudioNode(this.context, st_filter, when_start, duration, this.context.currentTime);
 		
 		*/
+		//sample rate time stretch
+		if (seg.stretch_type == 'repitch'){
+			seg_source.playbackRate.value = 1/seg.speed;
+		//ping pong time stretch
+		} else if (seg.stretch_type == 'pingpong'){
+			// calculate the loop range
+			let loop_start = when_start + this.rampAttack;
+			let loop_end = when_end - this.rampRelease;
+			let segment_duration = (when_end-when_start)
+			// calculate the duration to fill 
+			let fill_duration = (segment_duration*seg.speed)-segment_duration;
+			//get the audio bytes
+			function cloneAudioBuffer(audioBuffer, context){
+			    let channels = [],
+			        numChannels = audioBuffer.numberOfChannels;
+
+			    //clone the underlying Float32Arrays
+			    for (let i = 0; i < numChannels; i++){
+			        channels[i] = new Float32Array(audioBuffer.getChannelData(i));
+			    }
+			    console.log(context)
+			    //create the new AudioBuffer (assuming AudioContext variable is in scope)
+			    let newBuffer = context.createBuffer(
+			                        audioBuffer.numberOfChannels,
+			                        audioBuffer.length,
+			                        audioBuffer.sampleRate
+			                    );
+
+			    //copy the cloned arrays to the new AudioBuffer
+			    for (let i = 0; i < numChannels; i++){
+			        newBuffer.getChannelData(i).set(channels[i]);
+			    }
+
+			    return newBuffer;
+			}
+			//reverse the audio bytes
+			function reverseAudio(buffer, context)  {
+		        storedBufferR = cloneAudioBuffer(buffer, context);
+		        // attempt to reverse storedBufferR only ...
+		        Array.prototype.reverse.call( storedBufferR.getChannelData(0) );
+		        Array.prototype.reverse.call( storedBufferR.getChannelData(1) ); 
+				return storedBufferR
+			}
+			//create reversed buffer
+			if(typeof this.context !== "undefined"){
+				let reversed_buffer = reverseAudio(seg_source.buffer, this.context);
+				return tmp;
+			} else {
+				console.log('undefined context')
+			}
+			//overlap them to fill the duration 
+
+			//window the overlaps
+
+			//TODO -- introduce sample rate for independent pitch/time scale
+
+		}
 		
 // Gain
 		let gain = 1.0 // overall gain of segment, default 1.0
